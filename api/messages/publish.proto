@@ -82,4 +82,19 @@ message PublishReply {
  // The highest sequential index that has been persisted. (See the API
  // README for details on what "persisted" entails.)
  uint64 persisted_index = 4;
+
+ // The list of event rejections.
+ // An event might not pass the validation,
+ // e.g. does not have a required field or has invalid metadata or fields
+ repeated Rejection rejected = 5;
+}
+
+// Rejection is a status object that describes why a certain
+// event from the batch was rejected by the server.
+message Rejection {
+ // Index of the rejected event in the initial `events` list.
+ uint64 index = 1;
+
+ // Human-readable message that explains the reason of the rejection
+ string reason = 2;
 }
