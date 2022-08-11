@@ -8,6 +8,7 @@ option go_package = "github.com/elastic/elastic-agent-shipper-client/pkg/proto/m
 package elastic.agent.shipper.v1.messages;
 
 import "google/protobuf/timestamp.proto";
+import "google/rpc/status.proto";
 import "messages/struct.proto";
 
 message PublishRequest {
@@ -92,9 +93,9 @@ message PublishReply {
 // Rejection is a status object that describes why a certain
 // event from the batch was rejected by the server.
 message Rejection {
- // Index of the rejected event in the initial `events` list.
- uint64 index = 1;
+ // Index of the rejected event in the list of events from the initial `PublishRequest`
+ uint64 events_index = 1;
 
- // Human-readable message that explains the reason of the rejection
- string reason = 2;
+ // Status field that explains the reason of the rejection
+ google.rpc.Status reason = 2;
 }
