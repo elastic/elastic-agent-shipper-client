@@ -34,31 +34,45 @@ func BenchmarkCustomMarshal(b *testing.B) {
 		}},
 	}
 
-	testMessage, err := NewValue(testMapInput)
-	if err != nil {
-		b.Logf("error creating value from struct: %s", err)
-		b.FailNow()
-	}
-	b.ResetTimer()
-	b.Run("marshal custom protobuf message.Value type", func(b *testing.B) {
+	b.Run("marshal value using fastjson", func(b *testing.B) {
+		var jsonEventData fastjson.Writer
 		for i := 0; i < b.N; i++ {
-			jsonEventData, err := json.Marshal(testMessage)
+			b.StopTimer()
+			testMessage, valueErr := NewValue(testMapInput)
+			if valueErr != nil {
+				b.Logf("error creating value from struct: %s", valueErr)
+				b.FailNow()
+			}
+			b.StartTimer()
+
+			jsonEventData := &fastjson.Writer{}
+			err := fastjson.Marshal(jsonEventData, testMessage)
 			if err != nil {
 				b.Logf("error marshaling data: %s", err)
 				b.FailNow()
 			}
-			marshalResult = jsonEventData
 		}
+		marshalResult = jsonEventData.Bytes()
 	})
-	b.Run("standard struct using stdlib", func(b *testing.B) {
+	b.Run("marshal value using stdlib", func(b *testing.B) {
+		var jsonEventData []byte
 		for i := 0; i < b.N; i++ {
-			jsonEventData, err := json.Marshal(testMapInput)
+			b.StopTimer()
+			testMessage, valueErr := NewValue(testMapInput)
+			if valueErr != nil {
+				b.Logf("error creating value from struct: %s", valueErr)
+				b.FailNow()
+			}
+			b.StartTimer()
+
+			v, err := json.Marshal(testMessage)
+			jsonEventData = v
 			if err != nil {
 				b.Logf("error marshaling data: %s", err)
 				b.FailNow()
 			}
-			marshalResult = jsonEventData
 		}
+		marshalResult = jsonEventData
 	})
 }
 
