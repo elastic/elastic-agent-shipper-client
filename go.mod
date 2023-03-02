@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/elastic/elastic-agent-libs v0.2.7
 	github.com/magefile/mage v1.13.0
+	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.7.0
 	go.elastic.co/fastjson v1.1.0
 	google.golang.org/genproto v0.0.0-20211208223120-3a66f561d7aa
@@ -18,7 +19,6 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	go.elastic.co/ecszap v1.0.1 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
