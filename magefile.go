@@ -9,6 +9,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -23,7 +24,6 @@ import (
 	"github.com/elastic/elastic-agent-libs/dev-tools/mage/gotool"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -226,7 +226,7 @@ func (Benchmark) Run(ctx context.Context, outputFile string) error {
 	if outputFile != "" {
 		fileOutput, err := os.Create(createDir(outputFile))
 		if err != nil {
-			return errors.Wrap(err, "failed to create go test output file")
+			fmt.Errorf("failed to create go test output file: %w", err)
 		}
 		defer fileOutput.Close()
 		outputs = append(outputs, fileOutput)
@@ -242,7 +242,7 @@ func (Benchmark) Run(ctx context.Context, outputFile string) error {
 		// Command ran.
 		var exitErr *exec.ExitError
 		if !errors.As(err, &exitErr) {
-			return errors.Wrap(err, "failed to execute go")
+			return fmt.Errorf("failed to execute go: %w", err)
 		}
 
 		// Command ran but failed. Process the output.
@@ -282,7 +282,7 @@ func (Benchmark) Diff(ctx context.Context, baseFile string, newFile string, outp
 	if outputFile != "" {
 		fileOutput, err := os.Create(createDir(outputFile))
 		if err != nil {
-			return errors.Wrap(err, "failed to create go test output file")
+			fmt.Errorf("failed to create benchstat output file: %w", err)
 		}
 		defer fileOutput.Close()
 		outputs = append(outputs, fileOutput)
@@ -298,7 +298,7 @@ func (Benchmark) Diff(ctx context.Context, baseFile string, newFile string, outp
 		// Command ran.
 		var exitErr *exec.ExitError
 		if !errors.As(err, &exitErr) {
-			return errors.Wrap(err, "failed to execute go")
+			return fmt.Errorf("failed to execute go: %w", err)
 		}
 
 		// Command ran but failed. Process the output.
@@ -307,7 +307,7 @@ func (Benchmark) Diff(ctx context.Context, baseFile string, newFile string, outp
 
 	if goTestErr != nil {
 		// No packages were tested. Probably the code didn't compile.
-		return errors.Wrap(goTestErr, "go test returned a non-zero value")
+		return fmt.Errorf("go test returned a non-zero value: %w", goTestErr)
 	}
 
 	return nil
@@ -335,7 +335,8 @@ func createDir(file string) string {
 	// Create the output directory.
 	if dir := filepath.Dir(file); dir != "." {
 		if err := os.MkdirAll(dir, 0755); err != nil {
-			panic(errors.Wrapf(err, "failed to create parent dir for %v", file))
+			fmt.Errorf("Failed to create parent dir for %w", file)
+			panic(err)
 		}
 	}
 	return file
