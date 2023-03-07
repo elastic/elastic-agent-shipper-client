@@ -207,7 +207,8 @@ func InstallBenchStat() error {
 	return nil
 }
 
-func (Benchmark) Run(ctx context.Context, outputFile string) error {
+func (Benchmark) Run(ctx context.Context) error {
+	outputFile := os.Getenv("OUTPUT")
 	mg.Deps(InstallBenchStat)
 	fmt.Println(">> go benchmark:", "Testing")
 	args := []string{
@@ -255,12 +256,12 @@ func (Benchmark) Run(ctx context.Context, outputFile string) error {
 	return nil
 }
 
-func (Benchmark) Diff(ctx context.Context, baseFile string, newFile string, outputFile string) error {
+func (Benchmark) Diff(ctx context.Context) error {
 	mg.Deps(InstallBenchStat)
+	outputFile := os.Getenv("OUTPUT")
+	baseFile := os.Getenv("BASE")
+	nextFile := os.Getenv("NEXT")
 	var args = []string{}
-	if outputFile == "" {
-		outputFile = "benchmark_stats"
-	}
 	if baseFile == "" {
 		log.Printf("Missing baseline benchmark output, benchstat will show a summary for the bechmark")
 	} else {
