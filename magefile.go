@@ -239,19 +239,17 @@ func (Benchmark) Run(ctx context.Context, outputFile string) error {
 
 	var goTestErr *exec.ExitError
 	if err != nil {
-		// Command ran.
-		var exitErr *exec.ExitError
-		if !errors.As(err, &exitErr) {
-			return fmt.Errorf("failed to execute go: %w", err)
+		switch {
+		case errors.As(err, &goTestErr):
+			return fmt.Errorf("failed to execute go test -bench command: %w", err)
+		default:
+			return fmt.Errorf("failed to execute go test -bench command %w", err)
 		}
-
-		// Command ran but failed. Process the output.
-		goTestErr = exitErr
 	}
 
 	if goTestErr != nil {
 		// No packages were tested. Probably the code didn't compile.
-		return errors.Wrap(goTestErr, "go test returned a non-zero value")
+		return goTestErr
 	}
 
 	return nil
@@ -264,15 +262,14 @@ func (Benchmark) Diff(ctx context.Context, baseFile string, newFile string, outp
 		outputFile = "benchmark_stats"
 	}
 	if baseFile == "" {
-		log.Printf("Missing baseline benchmark output")
+		log.Printf("Missing baseline benchmark output, benchstat will show a summary for the bechmark")
 	} else {
 		args = append(args, baseFile)
 	}
-
-	if newFile == "" {
-		return errors.New("Missing benchmark output file, please run first benchmark:all")
+	if nextFile == "" {
+		return fmt.Errorf("Missing candidate benchmark output file, please run first OUTPUT=foo benchmark:run")
 	} else {
-		args = append(args, newFile)
+		args = append(args, nextFile)
 	}
 
 	gobench := makeCommand(ctx, nil, "benchstat", args...)
@@ -295,19 +292,17 @@ func (Benchmark) Diff(ctx context.Context, baseFile string, newFile string, outp
 
 	var goTestErr *exec.ExitError
 	if err != nil {
-		// Command ran.
-		var exitErr *exec.ExitError
-		if !errors.As(err, &exitErr) {
-			return fmt.Errorf("failed to execute go: %w", err)
+		switch {
+		case errors.As(err, &goTestErr):
+			return fmt.Errorf("failed to execute benchstat command: %w", err)
+		default:
+			return fmt.Errorf("failed to execute benchstat command %w", err)
 		}
-
-		// Command ran but failed. Process the output.
-		goTestErr = exitErr
 	}
 
 	if goTestErr != nil {
 		// No packages were tested. Probably the code didn't compile.
-		return fmt.Errorf("go test returned a non-zero value: %w", goTestErr)
+		return goTestErr
 	}
 
 	return nil
