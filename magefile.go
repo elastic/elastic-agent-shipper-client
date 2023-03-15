@@ -199,6 +199,7 @@ func licenser(mode licenserMode) error {
 
 type Benchmark mg.Namespace
 
+// InstallBenchStat installs required plugins for reading benchmarks results
 func InstallBenchStat() error {
 	err := gotool.Install(gotool.Install.Package(goBenchstats))
 	if err != nil {
@@ -207,6 +208,7 @@ func InstallBenchStat() error {
 	return nil
 }
 
+// Run execute the go benchmarks
 func (Benchmark) Run(ctx context.Context) error {
 	outputFile := os.Getenv("OUTPUT")
 	mg.Deps(InstallBenchStat)
@@ -256,6 +258,7 @@ func (Benchmark) Run(ctx context.Context) error {
 	return nil
 }
 
+// Diff compare 2 benchmark outputs
 func (Benchmark) Diff(ctx context.Context) error {
 	mg.Deps(InstallBenchStat)
 	outputFile := os.Getenv("OUTPUT")
@@ -268,7 +271,7 @@ func (Benchmark) Diff(ctx context.Context) error {
 		args = append(args, baseFile)
 	}
 	if nextFile == "" {
-		return fmt.Errorf("Missing candidate benchmark output file, please run first OUTPUT=foo benchmark:run")
+		return fmt.Errorf("Missing candidate benchmark output file, please run first OUTPUT=benchmark_output benchmark:run")
 	} else {
 		args = append(args, nextFile)
 	}
