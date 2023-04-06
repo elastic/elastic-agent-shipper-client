@@ -76,7 +76,9 @@ func (sv *Struct) MarshalFastJSON(w *fastjson.Writer) error {
 			beginning = false
 		}
 
-		w.RawString(fmt.Sprintf("\"%s\":", key))
+		w.RawString("\"")
+		w.RawString(key)
+		w.RawString("\":")
 		err := val.MarshalFastJSON(w)
 		if err != nil {
 			return fmt.Errorf("error marshaling value in map: %w", err)
