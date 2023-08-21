@@ -8,15 +8,22 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
+	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
+	"strings"
 
 	devtools "github.com/elastic/elastic-agent-libs/dev-tools/mage"
 	"github.com/elastic/elastic-agent-libs/dev-tools/mage/gotool"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -25,6 +32,8 @@ const (
 	goProtocGenGo     = "google.golang.org/protobuf/cmd/protoc-gen-go@v1.28"
 	goProtocGenGoGRPC = "google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2"
 	goLicenserRepo    = "github.com/elastic/go-licenser@v0.4.1"
+
+	goBenchstats = "golang.org/x/perf/cmd/benchstat@v0.0.0-20230227161431-f7320a6d63e8"
 )
 
 var (
@@ -49,6 +58,12 @@ var (
 		"api/messages/struct.proto",
 		"pkg/proto/messages/struct.pb.go",
 		"pkg/helpers/struct.go",
+	}
+
+	benchmarkCount int = 8
+	// Add the packages to run go benchmark
+	goBenchmarkPackages = []string{
+		"pkg/helpers",
 	}
 )
 
@@ -180,4 +195,148 @@ func licenser(mode licenserMode) error {
 	}
 
 	return nil
+}
+
+type Benchmark mg.Namespace
+
+func InstallBenchStat() error {
+	err := gotool.Install(gotool.Install.Package(goBenchstats))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (Benchmark) Run(ctx context.Context, outputFile string) error {
+	mg.Deps(InstallBenchStat)
+	fmt.Println(">> go benchmark:", "Testing")
+	args := []string{
+		"test",
+		fmt.Sprintf("-count=%d", benchmarkCount),
+		"-bench=.",
+		"-run=Bench#",
+	}
+	for _, pkg := range goBenchmarkPackages {
+		args = append(args, filepath.Join("github.com/elastic/elastic-agent-shipper-client", pkg, "..."))
+	}
+	goTestBench := makeCommand(ctx, nil, "go", args...)
+
+	// Wire up the outputs.
+	var outputs []io.Writer
+	if outputFile != "" {
+		fileOutput, err := os.Create(createDir(outputFile))
+		if err != nil {
+			return errors.Wrap(err, "failed to create go test output file")
+		}
+		defer fileOutput.Close()
+		outputs = append(outputs, fileOutput)
+	}
+	output := io.MultiWriter(outputs...)
+	goTestBench.Stdout = io.MultiWriter(output, os.Stdout)
+	goTestBench.Stderr = io.MultiWriter(output, os.Stderr)
+
+	err := goTestBench.Run()
+
+	var goTestErr *exec.ExitError
+	if err != nil {
+		// Command ran.
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) {
+			return errors.Wrap(err, "failed to execute go")
+		}
+
+		// Command ran but failed. Process the output.
+		goTestErr = exitErr
+	}
+
+	if goTestErr != nil {
+		// No packages were tested. Probably the code didn't compile.
+		return errors.Wrap(goTestErr, "go test returned a non-zero value")
+	}
+
+	return nil
+}
+
+func (Benchmark) Diff(ctx context.Context, baseFile string, newFile string, outputFile string) error {
+	mg.Deps(InstallBenchStat)
+	var args = []string{}
+	if outputFile == "" {
+		outputFile = "benchmark_stats"
+	}
+	if baseFile == "" {
+		log.Printf("Missing baseline benchmark output")
+	} else {
+		args = append(args, baseFile)
+	}
+
+	if newFile == "" {
+		return errors.New("Missing benchmark output file, please run first benchmark:all")
+	} else {
+		args = append(args, newFile)
+	}
+
+	gobench := makeCommand(ctx, nil, "benchstat", args...)
+
+	// Wire up the outputs.
+	var outputs []io.Writer
+	if outputFile != "" {
+		fileOutput, err := os.Create(createDir(outputFile))
+		if err != nil {
+			return errors.Wrap(err, "failed to create go test output file")
+		}
+		defer fileOutput.Close()
+		outputs = append(outputs, fileOutput)
+	}
+	output := io.MultiWriter(outputs...)
+	gobench.Stdout = io.MultiWriter(output, os.Stdout)
+	gobench.Stderr = io.MultiWriter(output, os.Stderr)
+
+	err := gobench.Run()
+
+	var goTestErr *exec.ExitError
+	if err != nil {
+		// Command ran.
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) {
+			return errors.Wrap(err, "failed to execute go")
+		}
+
+		// Command ran but failed. Process the output.
+		goTestErr = exitErr
+	}
+
+	if goTestErr != nil {
+		// No packages were tested. Probably the code didn't compile.
+		return errors.Wrap(goTestErr, "go test returned a non-zero value")
+	}
+
+	return nil
+}
+
+func makeCommand(ctx context.Context, env map[string]string, cmd string, args ...string) *exec.Cmd {
+	c := exec.CommandContext(ctx, cmd, args...)
+	c.Env = os.Environ()
+	for k, v := range env {
+		c.Env = append(c.Env, k+"="+v)
+	}
+	c.Stdout = ioutil.Discard
+	if mg.Verbose() {
+		c.Stdout = os.Stdout
+	}
+	c.Stderr = os.Stderr
+	c.Stdin = os.Stdin
+	log.Println("exec:", cmd, strings.Join(args, " "))
+	fmt.Println("exec:", cmd, strings.Join(args, " "))
+	return c
+}
+
+// CreateDir creates the parent directory for the given file.
+func createDir(file string) string {
+	// Create the output directory.
+	if dir := filepath.Dir(file); dir != "." {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			panic(errors.Wrapf(err, "failed to create parent dir for %v", file))
+		}
+	}
+	return file
 }
